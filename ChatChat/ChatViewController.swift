@@ -34,13 +34,26 @@ class ChatViewController: JSQMessagesViewController  {
     var outgoingBubbleImageView: JSQMessagesBubbleImage!
     var incomingBubbleImageView: JSQMessagesBubbleImage!
     
+    // Creates connection to Firebase database
+    let rootRef = Firebase(url: "https://chapeau-mgl.firebaseio.com/")
+    var messageRef: Firebase!
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Chapeau"
         
-        
         setUpBubbles()
+        
+        // Shrinks avatars to no size
+        collectionView!.collectionViewLayout.incomingAvatarViewSize = CGSizeZero
+        collectionView!.collectionViewLayout.outgoingAvatarViewSize = CGSizeZero
+        
+        // used childByAppendingPath() helper method to create child reference
+        messageRef = rootRef.childByAppendingPath("messages")
+        
+        observeMessages()
+        
     }
     
     override func viewDidAppear(animated: Bool) {
@@ -74,24 +87,81 @@ class ChatViewController: JSQMessagesViewController  {
             
             // If message sent by the local user, eturn the outgoing imageview
             if message.senderId == senderId {
-                
                 return outgoingBubbleImageView
-                
             } else {
-                
                 // if message not sent by the local user, eturn the incoming imageview
                 return incomingBubbleImageView
             }
     }
     
-    
-    // Remove avatar support, close gap where the avatars usually appear
-    
+    // Remove avatar support
     override func collectionView(collectionView: JSQMessagesCollectionView!, avatarImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageAvatarImageDataSource! {
         return nil
+    }
+    
+    // Creates a new JSQMessage with a blank displayName and adds it to the data source
+    func addMessage(id: String, text: String) {
+        let message = JSQMessage(senderId: id, displayName: "", text: text)
+        messages.append(message)
+    }
+    
+    override func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
+        let cell = super.collectionView(collectionView, cellForItemAtIndexPath: indexPath) as! JSQMessagesCollectionViewCell
+        let message = messages[indexPath.item]
+        if message.senderId == senderId {
+            cell.textView!.textColor = UIColor.whiteColor()
+        } else  {
+            cell.textView!.textColor = UIColor.blackColor()
+        }
+        return cell
+    }
+    
+    // Send messages
+    override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
+        
+        // Create child reference with unique key using childByAutoId()
+        let itemRef = messageRef.childByAutoId()
+        
+        //Create a dictionary to represent the message -- [String: AnyObject] works as a JSON-like object
+        let messageItem = [
+            "text": text,
+            "senderId": senderId
+        ]
+        
+        //Save the value at the new child location
+        itemRef.setValue(messageItem)
+        
+        // Play sound
+        JSQSystemSoundPlayer.jsq_playMessageSentSound()
+        
+        // Complete the “send” action and reset the input toolbar to empty
+        finishSendingMessage()
+    }
+    
+    
+    // Synchronize data source
+    
+    private func observeMessages() {
+        // Create query that limits the synchronization to the last 25 messages
+        let messagesQuery = messageRef.queryLimitedToLast(25)
+        //Use the .ChildAdded to observe child items added/will be added at the messages location
+        messagesQuery.observeEventType(.ChildAdded) { (snapshot: FDataSnapshot!) in
+            // Extract the senderId and text from snapshot.value.
+            let id = snapshot.value["senderId"] as! String
+            let text = snapshot.value["text"] as! String
+            
+            // Call addMessage() to add the new message to the data source.
+            self.addMessage(id, text: text)
+            
+            // Inform JSQMessagesViewController that a message has been received.
+            self.finishReceivingMessage()
+        }
+        
         
     }
 }
+
+
 
 
 
