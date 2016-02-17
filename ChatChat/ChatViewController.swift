@@ -25,18 +25,78 @@ import Firebase
 import JSQMessagesViewController
 
 class ChatViewController: JSQMessagesViewController  {
-  
-  override func viewDidLoad() {
-    super.viewDidLoad()
-    title = "Chapeau"
-  }
-  
-  override func viewDidAppear(animated: Bool) {
-    super.viewDidAppear(animated)
-  }
-  
-  override func viewDidDisappear(animated: Bool) {
-    super.viewDidDisappear(animated)
-  }
-  
+    
+    // Use built-in JSQMessage class to provide objects that conform to JSQMessageData protocol; use messages array to store instances of JSQMessage in app
+    
+    // MARK: Properties
+    var messages = [JSQMessage]()
+    
+    var outgoingBubbleImageView: JSQMessagesBubbleImage!
+    var incomingBubbleImageView: JSQMessagesBubbleImage!
+    
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Chapeau"
+        
+        
+        setUpBubbles()
+    }
+    
+    override func viewDidAppear(animated: Bool) {
+        super.viewDidAppear(animated)
+    }
+    
+    override func viewDidDisappear(animated: Bool) {
+        super.viewDidDisappear(animated)
+    }
+    
+    override func collectionView(collectionView: JSQMessagesCollectionView!, messageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageData! {
+        return messages[indexPath.item]
+    }
+    
+    override func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return messages.count
+    }
+    
+    private func setUpBubbles() {
+        let factory = JSQMessagesBubbleImageFactory()
+        outgoingBubbleImageView = factory.outgoingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleBlueColor())
+        incomingBubbleImageView = factory.incomingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleLightGrayColor())
+    }
+    
+    // Override method sets color for message bubbles
+    override func collectionView(collectionView: JSQMessagesCollectionView!,
+        messageBubbleImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageBubbleImageDataSource! {
+            
+            // Get message based on NSIndexPath item
+            let message = messages[indexPath.item]
+            
+            // If message sent by the local user, eturn the outgoing imageview
+            if message.senderId == senderId {
+                
+                return outgoingBubbleImageView
+                
+            } else {
+                
+                // if message not sent by the local user, eturn the incoming imageview
+                return incomingBubbleImageView
+            }
+    }
+    
+    
+    // Remove avatar support, close gap where the avatars usually appear
+    
+    override func collectionView(collectionView: JSQMessagesCollectionView!, avatarImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageAvatarImageDataSource! {
+        return nil
+        
+    }
 }
+
+
+
+
+
+
+
+
