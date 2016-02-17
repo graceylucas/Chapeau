@@ -21,12 +21,14 @@
 */
 
 import UIKit
+import Firebase
+import JSQMessagesViewController
 
-class ChatViewController: UIViewController {
+class ChatViewController: JSQMessagesViewController  {
   
   override func viewDidLoad() {
     super.viewDidLoad()
-    title = "ChatChat"
+    title = "Chapeau"
   }
   
   override func viewDidAppear(animated: Bool) {
