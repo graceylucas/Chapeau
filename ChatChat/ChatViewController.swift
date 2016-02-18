@@ -53,13 +53,33 @@ class ChatViewController: JSQMessagesViewController  {
         }
         
     }
+    
+    
+    var usersTypingQuery: FQuery!
+    
+    
     // Creates reference to the URL of /typingIndicator
     private func observeTyping() {
         let typingIndicatorRef = rootRef.childByAppendingPath("typingIndicator")
         userIsTypingRef = typingIndicatorRef.childByAppendingPath(senderId)
         // Delete indicator when user has left
         userIsTypingRef.onDisconnectRemoveValue()
+        
+        
+        usersTypingQuery = typingIndicatorRef.queryOrderedByValue().queryEqualToValue(true)
+        
+        usersTypingQuery.observeEventType(.Value) { (data: FDataSnapshot!) in
+            
+            if data.childrenCount == 1 && self.isTyping {
+                return
+            }
+            
+            self.showTypingIndicator = data.childrenCount > 0
+            self.scrollToBottomAnimated(true)
+        }
+        
     }
+    
     
     
     
@@ -67,135 +87,136 @@ class ChatViewController: JSQMessagesViewController  {
         super.textViewDidChange(textView)
         // If the text is not empty, the user is typing
         isTyping = textView.text != ""
-    
-}
-
-
-override func viewDidLoad() {
-    super.viewDidLoad()
-    title = "Chapeau"
-    
-    setUpBubbles()
-    
-    // Shrinks avatars to no size
-    collectionView!.collectionViewLayout.incomingAvatarViewSize = CGSizeZero
-    collectionView!.collectionViewLayout.outgoingAvatarViewSize = CGSizeZero
-    
-    // used childByAppendingPath() helper method to create child reference
-    messageRef = rootRef.childByAppendingPath("messages")
-    
-    observeMessages()
-    
-    observeTyping()
-    
-}
-
-override func viewDidAppear(animated: Bool) {
-    super.viewDidAppear(animated)
-}
-
-override func viewDidDisappear(animated: Bool) {
-    super.viewDidDisappear(animated)
-}
-
-override func collectionView(collectionView: JSQMessagesCollectionView!, messageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageData! {
-    return messages[indexPath.item]
-}
-
-override func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-    return messages.count
-}
-
-private func setUpBubbles() {
-    let factory = JSQMessagesBubbleImageFactory()
-    outgoingBubbleImageView = factory.outgoingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleBlueColor())
-    incomingBubbleImageView = factory.incomingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleLightGrayColor())
-}
-
-// Override method sets color for message bubbles
-override func collectionView(collectionView: JSQMessagesCollectionView!,
-    messageBubbleImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageBubbleImageDataSource! {
         
-        // Get message based on NSIndexPath item
+    }
+    
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Chapeau"
+        
+        setUpBubbles()
+        
+        // Shrinks avatars to no size
+        collectionView!.collectionViewLayout.incomingAvatarViewSize = CGSizeZero
+        collectionView!.collectionViewLayout.outgoingAvatarViewSize = CGSizeZero
+        
+        // used childByAppendingPath() helper method to create child reference
+        messageRef = rootRef.childByAppendingPath("messages")
+        
+        observeMessages()
+        
+        observeTyping()
+        
+    }
+    
+    override func viewDidAppear(animated: Bool) {
+        super.viewDidAppear(animated)
+    }
+    
+    override func viewDidDisappear(animated: Bool) {
+        super.viewDidDisappear(animated)
+    }
+    
+    override func collectionView(collectionView: JSQMessagesCollectionView!, messageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageData! {
+        return messages[indexPath.item]
+    }
+    
+    override func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return messages.count
+    }
+    
+    private func setUpBubbles() {
+        let factory = JSQMessagesBubbleImageFactory()
+        outgoingBubbleImageView = factory.outgoingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleBlueColor())
+        incomingBubbleImageView = factory.incomingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleLightGrayColor())
+    }
+    
+    // Override method sets color for message bubbles
+    override func collectionView(collectionView: JSQMessagesCollectionView!,
+        messageBubbleImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageBubbleImageDataSource! {
+            
+            // Get message based on NSIndexPath item
+            let message = messages[indexPath.item]
+            
+            // If message sent by the local user, eturn the outgoing imageview
+            if message.senderId == senderId {
+                return outgoingBubbleImageView
+            } else {
+                // if message not sent by the local user, eturn the incoming imageview
+                return incomingBubbleImageView
+            }
+    }
+    
+    // Remove avatar support
+    override func collectionView(collectionView: JSQMessagesCollectionView!, avatarImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageAvatarImageDataSource! {
+        return nil
+    }
+    
+    // Creates a new JSQMessage with a blank displayName and adds it to the data source
+    func addMessage(id: String, text: String) {
+        let message = JSQMessage(senderId: id, displayName: "", text: text)
+        messages.append(message)
+    }
+    
+    override func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
+        let cell = super.collectionView(collectionView, cellForItemAtIndexPath: indexPath) as! JSQMessagesCollectionViewCell
         let message = messages[indexPath.item]
-        
-        // If message sent by the local user, eturn the outgoing imageview
         if message.senderId == senderId {
-            return outgoingBubbleImageView
-        } else {
-            // if message not sent by the local user, eturn the incoming imageview
-            return incomingBubbleImageView
+            cell.textView!.textColor = UIColor.whiteColor()
+        } else  {
+            cell.textView!.textColor = UIColor.blackColor()
         }
-}
-
-// Remove avatar support
-override func collectionView(collectionView: JSQMessagesCollectionView!, avatarImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageAvatarImageDataSource! {
-    return nil
-}
-
-// Creates a new JSQMessage with a blank displayName and adds it to the data source
-func addMessage(id: String, text: String) {
-    let message = JSQMessage(senderId: id, displayName: "", text: text)
-    messages.append(message)
-}
-
-override func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
-    let cell = super.collectionView(collectionView, cellForItemAtIndexPath: indexPath) as! JSQMessagesCollectionViewCell
-    let message = messages[indexPath.item]
-    if message.senderId == senderId {
-        cell.textView!.textColor = UIColor.whiteColor()
-    } else  {
-        cell.textView!.textColor = UIColor.blackColor()
+        return cell
     }
-    return cell
-}
-
-// Send messages
-override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
     
-    // Create child reference with unique key using childByAutoId()
-    let itemRef = messageRef.childByAutoId()
-    
-    //Create a dictionary to represent the message -- [String: AnyObject] works as a JSON-like object
-    let messageItem = [
-        "text": text,
-        "senderId": senderId
-    ]
-    
-    //Save the value at the new child location
-    itemRef.setValue(messageItem)
-    
-    // Play sound
-    JSQSystemSoundPlayer.jsq_playMessageSentSound()
-    
-    // Complete the “send” action and reset the input toolbar to empty
-    finishSendingMessage()
-    
-    isTyping = false
-
-}
-
-
-// Synchronize data source
-
-private func observeMessages() {
-    // Create query that limits the synchronization to the last 25 messages
-    let messagesQuery = messageRef.queryLimitedToLast(25)
-    //Use the .ChildAdded to observe child items added/will be added at the messages location
-    messagesQuery.observeEventType(.ChildAdded) { (snapshot: FDataSnapshot!) in
-        // Extract the senderId and text from snapshot.value.
-        let id = snapshot.value["senderId"] as! String
-        let text = snapshot.value["text"] as! String
+    // Send messages
+    override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
         
-        // Call addMessage() to add the new message to the data source.
-        self.addMessage(id, text: text)
+        // Create child reference with unique key using childByAutoId()
+        let itemRef = messageRef.childByAutoId()
         
-        // Inform JSQMessagesViewController that a message has been received.
-        self.finishReceivingMessage()
+        //Create a dictionary to represent the message -- [String: AnyObject] works as a JSON-like object
+        let messageItem = [
+            "text": text,
+            "senderId": senderId
+        ]
+        
+        //Save the value at the new child location
+        itemRef.setValue(messageItem)
+        
+        // Play sound
+        JSQSystemSoundPlayer.jsq_playMessageSentSound()
+        
+        // Complete the “send” action and reset the input toolbar to empty
+        finishSendingMessage()
+        
+        isTyping = false
+        
     }
     
     
-}
+    // Synchronize data source
+    
+    private func observeMessages() {
+        // Create query that limits the synchronization to the last 25 messages
+        let messagesQuery = messageRef.queryLimitedToLast(25)
+        //Use the .ChildAdded to observe child items added/will be added at the messages location
+        messagesQuery.observeEventType(.ChildAdded) { (snapshot: FDataSnapshot!) in
+            // Extract the senderId and text from snapshot.value.
+            let id = snapshot.value["senderId"] as! String
+            let text = snapshot.value["text"] as! String
+            
+            // Call addMessage() to add the new message to the data source.
+            self.addMessage(id, text: text)
+            
+            // Inform JSQMessagesViewController that a message has been received.
+            self.finishReceivingMessage()
+        }
+        
+        
+        
+    }
 }
 
 
